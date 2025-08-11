@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta charset="UTF-8">
-<title>26진 암호 웹앱</title>
+<meta charset="UTF-8" />
+<title>자리별 27진법 모듈러 곱셈 암호화/복호화</title>
 <style>
   body {
-    font-family: 'Segoe UI', sans-serif;
-    background: linear-gradient(135deg, #d4fc79, #96e6a1);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -15,75 +15,85 @@
   }
   .container {
     background: white;
-    border-radius: 16px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
     padding: 30px;
-    width: 350px;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    width: 360px;
   }
   h2 {
     text-align: center;
+    margin-bottom: 24px;
     color: #333;
-    margin-bottom: 20px;
   }
   .mode {
     display: flex;
-    justify-content: space-between;
+    justify-content: space-around;
     margin-bottom: 20px;
-    background: #f1f3f5;
+    background: #f0f4f8;
     border-radius: 12px;
-    padding: 5px;
+    padding: 6px 0;
   }
   .mode label {
+    cursor: pointer;
+    user-select: none;
     flex: 1;
     text-align: center;
+    font-weight: 600;
+    color: #666;
     padding: 8px 0;
-    cursor: pointer;
     border-radius: 10px;
-    transition: background 0.3s;
-    user-select: none;
+    transition: background-color 0.3s, color 0.3s;
   }
   .mode input {
     display: none;
   }
   .mode input:checked + span {
-    background: #4cafef;
+    background-color: #4cafef;
     color: white;
+    font-weight: 700;
   }
-  input[type="text"], textarea {
+  input[type="text"] {
     width: 100%;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    margin-top: 10px;
-    font-size: 14px;
+    padding: 12px;
+    font-size: 15px;
+    margin-bottom: 15px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
     box-sizing: border-box;
   }
   button {
     width: 100%;
-    padding: 12px;
-    margin-top: 15px;
-    background: #4cafef;
-    color: white;
+    padding: 14px;
+    background-color: #4cafef;
     border: none;
-    border-radius: 8px;
+    color: white;
     font-size: 16px;
+    font-weight: 600;
+    border-radius: 10px;
     cursor: pointer;
-    transition: background 0.3s;
+    transition: background-color 0.3s;
   }
   button:hover {
-    background: #3a96d1;
+    background-color: #3a8ddb;
   }
   textarea {
-    margin-top: 15px;
+    margin-top: 20px;
+    width: 100%;
+    height: 100px;
+    padding: 12px;
+    font-size: 15px;
+    border-radius: 10px;
+    border: 1px solid #ccc;
     resize: none;
-    background: #f9f9f9;
-    font-family: '맑은 고딕';
+    box-sizing: border-box;
+    background: #f9faff;
+    color: #333;
   }
 </style>
 </head>
 <body>
   <div class="container">
-    <h2>🔐 26진 암호화/복호화</h2>
+    <h2>자리별 27진법 모듈러 곱셈 암호</h2>
     <div class="mode">
       <label>
         <input type="radio" name="mode" value="encrypt" checked>
@@ -94,65 +104,92 @@
         <span>복호화</span>
       </label>
     </div>
-    <input type="text" id="key" placeholder="키 입력 (영문 대문자)">
-    <input type="text" id="text" placeholder="원문 또는 암호문 (영문 대문자)">
+    <input id="key" type="text" placeholder="키 입력 (A-Z와 공백만)" />
+    <input id="text" type="text" placeholder="원문 또는 암호문 입력 (A-Z와 공백만)" />
     <button onclick="process()">실행</button>
-    <textarea id="output" rows="4" readonly placeholder="결과가 여기에 표시됩니다"></textarea>
+    <textarea id="output" readonly placeholder="결과가 여기에 표시됩니다"></textarea>
   </div>
 
 <script>
+  // 문자 → 숫자 (A=0, ..., Z=25, ' '=26)
   function charToVal(ch) {
     if (ch === ' ') return 26;
-    return ch.charCodeAt(0) - 65; // 'A'=65
+    const code = ch.charCodeAt(0);
+    if (code >= 65 && code <= 90) return code - 65;
+    return -1;
   }
-
+  // 숫자 → 문자
   function valToChar(v) {
     if (v === 26) return ' ';
     return String.fromCharCode(65 + v);
   }
 
-  function strToNum(s) {
-    let val = 0;
-    for (let i = 0; i < s.length; i++) {
-      val = val * 27 + charToVal(s[i]);
-    }
-    return val;
+  // 확장 유클리드 알고리즘 (BigInt)
+  function egcd(a, b) {
+    if (b === 0n) return [a, 1n, 0n];
+    const [g, x1, y1] = egcd(b, a % b);
+    return [g, y1, x1 - (a / b) * y1];
   }
 
-  function numToStr(n, length) {
-    let chars = [];
-    for (let i = 0; i < length; i++) {
-      chars.unshift(valToChar(n % 27));
-      n = Math.floor(n / 27);
+  // 모듈러 역원 (BigInt)
+  function modInverse(a, m) {
+    const [g, x, _] = egcd(a, m);
+    if (g !== 1n) return null; // 역원 없음
+    return (x % m + m) % m;
+  }
+
+  // 입력 검사
+  function validateString(s) {
+    for (const ch of s) {
+      if (charToVal(ch) === -1) return false;
     }
-    return chars.join('');
+    return true;
+  }
+
+  function encryptChar(p, k) {
+    return (p * k) % 27;
+  }
+  function decryptChar(c, k) {
+    const inv = modInverse(BigInt(k), 27n);
+    if (inv === null) throw new Error("키 역원이 존재하지 않아 복호화 불가능");
+    return Number((BigInt(c) * inv) % 27n);
   }
 
   function process() {
-    let mode = document.querySelector('input[name="mode"]:checked').value;
+    const mode = document.querySelector('input[name="mode"]:checked').value;
     let key = document.getElementById('key').value.toUpperCase();
     let text = document.getElementById('text').value.toUpperCase();
 
-    if (!key || !text) {
-      alert("키와 텍스트를 모두 입력하세요!");
+    if (key.length === 0 || text.length === 0) {
+      alert("키와 텍스트를 모두 입력하세요.");
+      return;
+    }
+    if (!validateString(key) || !validateString(text)) {
+      alert("입력은 A-Z와 공백만 가능합니다.");
       return;
     }
 
-    let keyNum = strToNum(key);
-    let textNum = strToNum(text);
-    let length = text.length;
+    const keyVals = [...key].map(ch => charToVal(ch));
+    const textVals = [...text].map(ch => charToVal(ch));
 
-    let resultNum;
-    if (mode === 'encrypt') {
-      resultNum = textNum + keyNum;
-    } else {
-      resultNum = textNum - keyNum;
-      if (resultNum < 0) resultNum += Math.pow(27, length);
+    try {
+      let result = "";
+      for (let i = 0; i < text.length; i++) {
+        const p = textVals[i];
+        const k = keyVals[i % key.length];
+        let r;
+        if (mode === "encrypt") {
+          r = encryptChar(p, k);
+        } else {
+          r = decryptChar(textVals[i], k);
+        }
+        result += valToChar(r);
+      }
+      document.getElementById('output').value = result;
+    } catch (e) {
+      alert(e.message);
     }
-
-    document.getElementById('output').value = numToStr(resultNum, length);
   }
 </script>
 </body>
 </html>
-
