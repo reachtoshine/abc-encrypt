@@ -101,10 +101,20 @@
   </div>
 
 <script>
+  function charToVal(ch) {
+    if (ch === ' ') return 26;
+    return ch.charCodeAt(0) - 65; // 'A'=65
+  }
+
+  function valToChar(v) {
+    if (v === 26) return ' ';
+    return String.fromCharCode(65 + v);
+  }
+
   function strToNum(s) {
     let val = 0;
     for (let i = 0; i < s.length; i++) {
-      val = val * 26 + (s.charCodeAt(i) - 65);
+      val = val * 27 + charToVal(s[i]);
     }
     return val;
   }
@@ -112,16 +122,16 @@
   function numToStr(n, length) {
     let chars = [];
     for (let i = 0; i < length; i++) {
-      chars.unshift(String.fromCharCode(65 + (n % 26)));
-      n = Math.floor(n / 26);
+      chars.unshift(valToChar(n % 27));
+      n = Math.floor(n / 27);
     }
     return chars.join('');
   }
 
   function process() {
     let mode = document.querySelector('input[name="mode"]:checked').value;
-    let key = document.getElementById('key').value.trim().toUpperCase();
-    let text = document.getElementById('text').value.trim().toUpperCase();
+    let key = document.getElementById('key').value.toUpperCase();
+    let text = document.getElementById('text').value.toUpperCase();
 
     if (!key || !text) {
       alert("키와 텍스트를 모두 입력하세요!");
@@ -137,7 +147,7 @@
       resultNum = textNum + keyNum;
     } else {
       resultNum = textNum - keyNum;
-      if (resultNum < 0) resultNum += Math.pow(26, length);
+      if (resultNum < 0) resultNum += Math.pow(27, length);
     }
 
     document.getElementById('output').value = numToStr(resultNum, length);
@@ -145,3 +155,4 @@
 </script>
 </body>
 </html>
+
