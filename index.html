@@ -2,11 +2,11 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<title>영문 암호화</title>
+<title>영문, 숫자 암호화</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #a1c4fd, #c2e9fb);
+    background: linear-gradient(135deg, #ffecd2, #fcb69f);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -18,7 +18,7 @@
     padding: 30px;
     border-radius: 16px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    width: 360px;
+    width: 380px;
   }
   h2 {
     text-align: center;
@@ -48,7 +48,7 @@
     display: none;
   }
   .mode input:checked + span {
-    background-color: #4cafef;
+    background-color: #ff6f61;
     color: white;
     font-weight: 700;
   }
@@ -60,11 +60,12 @@
     border-radius: 10px;
     border: 1px solid #ccc;
     box-sizing: border-box;
+    letter-spacing: 1px;
   }
   button {
     width: 100%;
     padding: 14px;
-    background-color: #4cafef;
+    background-color: #ff6f61;
     border: none;
     color: white;
     font-size: 16px;
@@ -74,7 +75,7 @@
     transition: background-color 0.3s;
   }
   button:hover {
-    background-color: #3a8ddb;
+    background-color: #e75b4a;
   }
   textarea {
     margin-top: 20px;
@@ -86,14 +87,15 @@
     border: 1px solid #ccc;
     resize: none;
     box-sizing: border-box;
-    background: #f9faff;
+    background: #fff0f0;
     color: #333;
+    letter-spacing: 1.2px;
   }
 </style>
 </head>
 <body>
   <div class="container">
-    <h2>자리별 27진법 모듈러 곱셈 암호</h2>
+    <h2>37진법 자리별 모듈러 곱셈 암호화/복호화</h2>
     <div class="mode">
       <label>
         <input type="radio" name="mode" value="encrypt" checked>
@@ -104,24 +106,25 @@
         <span>복호화</span>
       </label>
     </div>
-    <input id="key" type="text" placeholder="키 입력 (A-Z와 공백만)" />
-    <input id="text" type="text" placeholder="원문 또는 암호문 입력 (A-Z와 공백만)" />
+    <input id="key" type="text" placeholder="키 입력 (0-9, A-Z, 공백만)" />
+    <input id="text" type="text" placeholder="원문 또는 암호문 입력 (0-9, A-Z, 공백만)" />
     <button onclick="process()">실행</button>
     <textarea id="output" readonly placeholder="결과가 여기에 표시됩니다"></textarea>
   </div>
 
 <script>
-  // 문자 → 숫자 (A=0, ..., Z=25, ' '=26)
+  // 문자 집합: 0-9, A-Z, ' ' (space)
+  const charSet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ';
+
+  // 문자 → 숫자
   function charToVal(ch) {
-    if (ch === ' ') return 26;
-    const code = ch.charCodeAt(0);
-    if (code >= 65 && code <= 90) return code - 65;
-    return -1;
+    return charSet.indexOf(ch);
   }
+
   // 숫자 → 문자
   function valToChar(v) {
-    if (v === 26) return ' ';
-    return String.fromCharCode(65 + v);
+    if (v < 0 || v >= charSet.length) return '?';
+    return charSet[v];
   }
 
   // 확장 유클리드 알고리즘 (BigInt)
@@ -138,21 +141,27 @@
     return (x % m + m) % m;
   }
 
-  // 입력 검사
+  // 입력 검사: charSet에 포함된 문자만 허용
   function validateString(s) {
     for (const ch of s) {
-      if (charToVal(ch) === -1) return false;
+      if (!charSet.includes(ch)) return false;
     }
     return true;
   }
 
+  // 모듈러
+  const MOD = 37n;
+
+  // 암호화: (plain * key) mod 37
   function encryptChar(p, k) {
-    return (p * k) % 27;
+    return Number((BigInt(p) * BigInt(k)) % MOD);
   }
+
+  // 복호화: (cipher * key^-1) mod 37
   function decryptChar(c, k) {
-    const inv = modInverse(BigInt(k), 27n);
-    if (inv === null) throw new Error("키 역원이 존재하지 않아 복호화 불가능");
-    return Number((BigInt(c) * inv) % 27n);
+    const inv = modInverse(BigInt(k), MOD);
+    if (inv === null) throw new Error("키 역원이 존재하지 않아 복호화 불가능합니다.");
+    return Number((BigInt(c) * inv) % MOD);
   }
 
   function process() {
@@ -165,11 +174,13 @@
       return;
     }
     if (!validateString(key) || !validateString(text)) {
-      alert("입력은 A-Z와 공백만 가능합니다.");
+      alert("입력은 0-9, A-Z, 공백 문자만 가능합니다.");
       return;
     }
 
+    // 키 숫자 배열
     const keyVals = [...key].map(ch => charToVal(ch));
+    // 텍스트 숫자 배열
     const textVals = [...text].map(ch => charToVal(ch));
 
     try {
@@ -177,11 +188,15 @@
       for (let i = 0; i < text.length; i++) {
         const p = textVals[i];
         const k = keyVals[i % key.length];
+        if (k === 0) {
+          alert("키에 '0' 문자가 포함되어 있습니다. 역원이 없어 복호화 불가능합니다.");
+          return;
+        }
         let r;
         if (mode === "encrypt") {
           r = encryptChar(p, k);
         } else {
-          r = decryptChar(textVals[i], k);
+          r = decryptChar(p, k);
         }
         result += valToChar(r);
       }
@@ -193,4 +208,3 @@
 </script>
 </body>
 </html>
-
