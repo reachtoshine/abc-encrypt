@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>영문, 숫자 암호화</title>
+<title>Encrypt Letters & Digits (Base37)</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -18,7 +18,7 @@
     padding: 30px;
     border-radius: 16px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    width: 380px;
+    width: 500px;
   }
   h2 {
     text-align: center;
@@ -27,27 +27,41 @@
   }
   .mode {
     display: flex;
-    justify-content: space-around;
     margin-bottom: 20px;
-    background: #f0f4f8;
     border-radius: 12px;
-    padding: 6px 0;
+    overflow: hidden;
+    box-shadow: inset 0 0 8px rgba(0,0,0,0.05);
   }
   .mode label {
+    flex: 1;
     cursor: pointer;
     user-select: none;
-    flex: 1;
+    padding: 12px 0;
     text-align: center;
     font-weight: 600;
     color: #666;
-    padding: 8px 0;
-    border-radius: 10px;
+    background-color: #f0f4f8;
     transition: background-color 0.3s, color 0.3s;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-right: 1px solid #ddd;
+  }
+  .mode label:last-child {
+    border-right: none;
   }
   .mode input {
     display: none;
   }
   .mode input:checked + span {
+    background-color: #ff6f61;
+    color: white;
+    font-weight: 700;
+    width: 100%;
+    display: block;
+  }
+  /* 라벨 전체 배경 색상 채우려면 아래 JS로 클래스 조작 */
+  .mode label.active {
     background-color: #ff6f61;
     color: white;
     font-weight: 700;
@@ -95,53 +109,53 @@
 </head>
 <body>
   <div class="container">
-    <h2>37진법 자리별 모듈러 곱셈 암호화/복호화</h2>
+    <h2>Base37 Modular Multiplicative Cipher</h2>
     <div class="mode">
       <label>
-        <input type="radio" name="mode" value="encrypt" checked>
-        <span>암호화</span>
+        <input type="radio" name="mode" value="encrypt" checked />
+        <span>Encrypt</span>
       </label>
       <label>
-        <input type="radio" name="mode" value="decrypt">
-        <span>복호화</span>
+        <input type="radio" name="mode" value="decrypt" />
+        <span>Decrypt</span>
       </label>
     </div>
-    <input id="key" type="text" placeholder="키 입력 (0-9, A-Z, 공백만)" />
-    <input id="text" type="text" placeholder="원문 또는 암호문 입력 (0-9, A-Z, 공백만)" />
-    <button onclick="process()">실행</button>
-    <textarea id="output" readonly placeholder="결과가 여기에 표시됩니다"></textarea>
+    <input id="key" type="text" placeholder="Enter key (0-9, A-Z, space)" />
+    <input id="text" type="text" placeholder="Enter plaintext or ciphertext (0-9, A-Z, space)" />
+    <button onclick="process()">Execute</button>
+    <textarea id="output" readonly placeholder="Result will appear here"></textarea>
   </div>
 
 <script>
-  // 문자 집합: 0-9, A-Z, ' ' (space)
+  // Character set: 0-9, A-Z, space
   const charSet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ';
 
-  // 문자 → 숫자
+  // char -> value
   function charToVal(ch) {
     return charSet.indexOf(ch);
   }
 
-  // 숫자 → 문자
+  // value -> char
   function valToChar(v) {
     if (v < 0 || v >= charSet.length) return '?';
     return charSet[v];
   }
 
-  // 확장 유클리드 알고리즘 (BigInt)
+  // Extended Euclidean Algorithm for BigInt
   function egcd(a, b) {
     if (b === 0n) return [a, 1n, 0n];
     const [g, x1, y1] = egcd(b, a % b);
     return [g, y1, x1 - (a / b) * y1];
   }
 
-  // 모듈러 역원 (BigInt)
+  // Modular inverse mod m
   function modInverse(a, m) {
     const [g, x, _] = egcd(a, m);
-    if (g !== 1n) return null; // 역원 없음
+    if (g !== 1n) return null; // no inverse
     return (x % m + m) % m;
   }
 
-  // 입력 검사: charSet에 포함된 문자만 허용
+  // Validate input string chars
   function validateString(s) {
     for (const ch of s) {
       if (!charSet.includes(ch)) return false;
@@ -149,18 +163,17 @@
     return true;
   }
 
-  // 모듈러
   const MOD = 37n;
 
-  // 암호화: (plain * key) mod 37
+  // Encrypt char: (plain * key) mod 37
   function encryptChar(p, k) {
     return Number((BigInt(p) * BigInt(k)) % MOD);
   }
 
-  // 복호화: (cipher * key^-1) mod 37
+  // Decrypt char: (cipher * key^-1) mod 37
   function decryptChar(c, k) {
     const inv = modInverse(BigInt(k), MOD);
-    if (inv === null) throw new Error("키 역원이 존재하지 않아 복호화 불가능합니다.");
+    if (inv === null) throw new Error("Key character has no modular inverse, cannot decrypt.");
     return Number((BigInt(c) * inv) % MOD);
   }
 
@@ -170,17 +183,17 @@
     let text = document.getElementById('text').value.toUpperCase();
 
     if (key.length === 0 || text.length === 0) {
-      alert("키와 텍스트를 모두 입력하세요.");
+      alert("Please enter both key and text.");
       return;
     }
     if (!validateString(key) || !validateString(text)) {
-      alert("입력은 0-9, A-Z, 공백 문자만 가능합니다.");
+      alert("Only characters 0-9, A-Z, and space are allowed.");
       return;
     }
 
-    // 키 숫자 배열
+    // Key values array
     const keyVals = [...key].map(ch => charToVal(ch));
-    // 텍스트 숫자 배열
+    // Text values array
     const textVals = [...text].map(ch => charToVal(ch));
 
     try {
@@ -189,7 +202,7 @@
         const p = textVals[i];
         const k = keyVals[i % key.length];
         if (k === 0) {
-          alert("키에 '0' 문자가 포함되어 있습니다. 역원이 없어 복호화 불가능합니다.");
+          alert("Key contains '0' character which has no modular inverse. Please use different key.");
           return;
         }
         let r;
@@ -205,6 +218,27 @@
       alert(e.message);
     }
   }
+
+  // Highlight selected mode label's background fully
+  const modeLabels = document.querySelectorAll('.mode label');
+  const radios = document.querySelectorAll('input[name="mode"]');
+
+  function updateActiveLabel() {
+    radios.forEach((r, i) => {
+      if (r.checked) {
+        modeLabels[i].classList.add('active');
+      } else {
+        modeLabels[i].classList.remove('active');
+      }
+    });
+  }
+
+  radios.forEach(radio => {
+    radio.addEventListener('change', updateActiveLabel);
+  });
+
+  // 초기 활성화 상태 반영
+  updateActiveLabel();
 </script>
 </body>
 </html>
