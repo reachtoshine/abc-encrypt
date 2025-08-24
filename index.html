@@ -126,119 +126,62 @@
     <textarea id="output" readonly placeholder="Result will appear here"></textarea>
   </div>
 
-<script>
-  // Character set: 0-9, A-Z, space
-  const charSet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ';
+  <script>
+    // Alphabet: 0–9 + A–Z + Space => 37 symbols
+    const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
+    const base = alphabet.length; // 37
 
-  // char -> value
-  function charToVal(ch) {
-    return charSet.indexOf(ch);
-  }
-
-  // value -> char
-  function valToChar(v) {
-    if (v < 0 || v >= charSet.length) return '?';
-    return charSet[v];
-  }
-
-  // Extended Euclidean Algorithm for BigInt
-  function egcd(a, b) {
-    if (b === 0n) return [a, 1n, 0n];
-    const [g, x1, y1] = egcd(b, a % b);
-    return [g, y1, x1 - (a / b) * y1];
-  }
-
-  // Modular inverse mod m
-  function modInverse(a, m) {
-    const [g, x, _] = egcd(a, m);
-    if (g !== 1n) return null; // no inverse
-    return (x % m + m) % m;
-  }
-
-  // Validate input string chars
-  function validateString(s) {
-    for (const ch of s) {
-      if (!charSet.includes(ch)) return false;
-    }
-    return true;
-  }
-
-  const MOD = 37n;
-
-  // Encrypt char: (plain * key) mod 37
-  function encryptChar(p, k) {
-    return Number((BigInt(p) * BigInt(k)) % MOD);
-  }
-
-  // Decrypt char: (cipher * key^-1) mod 37
-  function decryptChar(c, k) {
-    const inv = modInverse(BigInt(k), MOD);
-    if (inv === null) throw new Error("Key character has no modular inverse, cannot decrypt.");
-    return Number((BigInt(c) * inv) % MOD);
-  }
-
-  function process() {
-    const mode = document.querySelector('input[name="mode"]:checked').value;
-    let key = document.getElementById('key').value.toUpperCase();
-    let text = document.getElementById('text').value.toUpperCase();
-
-    if (key.length === 0 || text.length === 0) {
-      alert("Please enter both key and text.");
-      return;
-    }
-    if (!validateString(key) || !validateString(text)) {
-      alert("Only characters 0-9, A-Z, and space are allowed.");
-      return;
+    function modInverse(a, m) {
+      // Extended Euclidean Algorithm
+      let m0 = m, t, q;
+      let x0 = 0, x1 = 1;
+      if (m === 1) return 0;
+      while (a > 1) {
+        q = Math.floor(a / m);
+        t = m;
+        m = a % m; a = t;
+        t = x0;
+        x0 = x1 - q * x0;
+        x1 = t;
+      }
+      if (x1 < 0) x1 += m0;
+      return x1;
     }
 
-    // Key values array
-    const keyVals = [...key].map(ch => charToVal(ch));
-    // Text values array
-    const textVals = [...text].map(ch => charToVal(ch));
+    function processText() {
+      const text = document.getElementById("text").value.toUpperCase();
+      const keyStr = document.getElementById("key").value.trim();
+      const key = parseInt(keyStr, 10);
 
-    try {
+      if (isNaN(key) || key <= 0 || key >= base) {
+        alert("Key must be a number between 1 and 36.");
+        return;
+      }
+
+      const mode = document.querySelector('input[name="mode"]:checked').value;
       let result = "";
-      for (let i = 0; i < text.length; i++) {
-        const p = textVals[i];
-        const k = keyVals[i % key.length];
-        if (k === 0) {
-          alert("Key contains '0' character which has no modular inverse. Please use different key.");
-          return;
-        }
-        let r;
-        if (mode === "encrypt") {
-          r = encryptChar(p, k);
-        } else {
-          r = decryptChar(p, k);
-        }
-        result += valToChar(r);
-      }
-      document.getElementById('output').value = result;
-    } catch (e) {
-      alert(e.message);
-    }
-  }
 
-  // Highlight selected mode label's background fully
-  const modeLabels = document.querySelectorAll('.mode label');
-  const radios = document.querySelectorAll('input[name="mode"]');
-
-  function updateActiveLabel() {
-    radios.forEach((r, i) => {
-      if (r.checked) {
-        modeLabels[i].classList.add('active');
+      if (mode === "encrypt") {
+        for (let ch of text) {
+          const idx = alphabet.indexOf(ch);
+          if (idx === -1) { result += ch; continue; }
+          const enc = (idx * key) % base;
+          result += alphabet[enc];
+        }
       } else {
-        modeLabels[i].classList.remove('active');
+        // Decrypt
+        const invKey = modInverse(key, base);
+        for (let ch of text) {
+          const idx = alphabet.indexOf(ch);
+          if (idx === -1) { result += ch; continue; }
+          const dec = (idx * invKey) % base;
+          result += alphabet[dec];
+        }
       }
-    });
-  }
 
-  radios.forEach(radio => {
-    radio.addEventListener('change', updateActiveLabel);
-  });
-
-  // 초기 활성화 상태 반영
-  updateActiveLabel();
-</script>
+      document.getElementById("output").textContent = result;
+    }
+  </script>
 </body>
 </html>
+
