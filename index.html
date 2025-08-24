@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Encrypt Letters & Digits (Base37)</title>
+<title>Base37 Modular Multiplicative Cipher</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -18,7 +18,7 @@
     padding: 30px;
     border-radius: 16px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    width: 500px;
+    width: 380px;
   }
   h2 {
     text-align: center;
@@ -109,7 +109,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>Encrypt Letters & Digits (Base37)</h2>
+    <h2>Base37 Modular Multiplicative Cipher</h2>
     <div class="mode">
       <label>
         <input type="radio" name="mode" value="encrypt" checked />
@@ -120,8 +120,8 @@
         <span>Decrypt</span>
       </label>
     </div>
-    <input id="key" type="text" placeholder="Enter key (0-9, A-Z, space)" />
     <input id="text" type="text" placeholder="Enter plaintext or ciphertext (0-9, A-Z, space)" />
+    <input id="key" type="text" placeholder="Enter key (0-9, A-Z, space)" />
     <button onclick="process()">Execute</button>
     <textarea id="output" readonly placeholder="Result will appear here"></textarea>
   </div>
@@ -242,4 +242,3 @@
 </script>
 </body>
 </html>
-
