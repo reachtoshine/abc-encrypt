@@ -126,45 +126,66 @@
   </div>
 
 <script>
-  // Base37 character set
-  const charSet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ';
+// 37진수 문자 집합 정의
+const charset = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ '; // '_'를 36 이후 값으로 사용
 
-  function charToVal(ch) {
-    return charSet.indexOf(ch);
-  }
+// 37진수 문자열을 10진수로 변환하는 함수
+function base37ToDecimal(str) {
+    let decimal = 0n;
+    const base = 37n;
 
-  function valToChar(v) {
-    return charSet[v] ?? '?';
-  }
+    for (let char of str) {
+        let value = BigInt(charset.indexOf(char.toUpperCase()));
+        if (value === -1n) throw new Error(`Invalid character: ${char}`);
+        decimal = decimal * base + value;
+    }
 
-  // Extended Euclidean Algorithm for BigInt
-  function egcd(a, b) {
-    if (b === 0n) return [a, 1n, 0n];
-    const [g, x1, y1] = egcd(b, a % b);
-    return [g, y1, x1 - (a / b) * y1];
-  }
+    return decimal;
+}
 
-  function modInverse(a, m) {
-    const [g, x] = egcd(a, m);
-    if (g !== 1n) return null;
-    return (x % m + m) % m;
-  }
+// 두 37진수 문자열 곱하기
+function multiplyBase37(str1, str2) {
+    const num1 = base37ToDecimal(str1);
+    const num2 = base37ToDecimal(str2);
+    return num1 * num2;
+}
+
+// 두 37진수 문자열 나누기 (몫과 나머지 반환)
+function divideBase37(str1, str2) {
+    const num1 = base37ToDecimal(str1);
+    const num2 = base37ToDecimal(str2);
+    if (num2 === 0n) throw new Error("Division by zero");
+    const quotient = num1 / num2;
+    const remainder = num1 % num2;
+    return { quotient, remainder };
+}
 
   function validateString(s) {
     for (const ch of s) {
-      if (!charSet.includes(ch)) return false;
+      if (!charset.includes(ch)) return false;
     }
     return true;
   }
 
-  const MOD = 37n;
+
+  function decimalToBase37(num) {
+    if (num === 0n) return '0';
+    const base = 37n;
+    let str = '';
+
+    while (num > 0n) {
+        const remainder = num % base;
+        str = charset[Number(remainder)] + str;
+        num = num / base;
+    }
+
+    return str;}
 
   function process() {
     const mode = document.querySelector('input[name="mode"]:checked').value;
     const key = document.getElementById("key").value.toUpperCase();
     const text = document.getElementById("text").value.toUpperCase();
-
-    if (!key || !text) {
+        if (!key || !text) {
       alert("Please enter both key and text.");
       return;
     }
@@ -172,45 +193,19 @@
       alert("Only 0-9, A-Z, and space are allowed.");
       return;
     }
-
-    const keyVals = [...key].map(charToVal);
-    const textVals = [...text].map(charToVal);
-    let result = "";
-
-    try {
-      for (let i = 0; i < textVals.length; i++) {
-        const t = BigInt(textVals[i]);
-        const k = BigInt(keyVals[i % keyVals.length]);
-
-        if (k === 0n) {
-          alert("Key contains '0' which has no modular inverse. Use another key.");
-          return;
-        }
-
-        let r;
-        if (mode === "encrypt") {
-          r = Number((t * k) % MOD);
-        } else {
-          const inv = modInverse(k, MOD);
-          if (inv === null) {
-            alert("Key character has no modular inverse, cannot decrypt.");
-            return;
-          }
-          r = Number((t * inv) % MOD);
-        }
-        result += valToChar(r);
-      }
-
-      // 복호화 시 앞쪽 0 제거
-      if (mode === "decrypt") {
-        result = result.replace(/^0+/, '');
-      }
-
-      document.getElementById("output").value = result;
-    } catch (e) {
-      alert(e.message);
+    if (mode === "encrypt") {
+      let result = multiplyBase37(text, key);
+      document.getElementById("output").value = decimalToBase37(result);
+    } else if (mode === "decrypt") {
+      let result = divideBase37(text, key);
+      document.getElementById("output").value = decimalToBase37(result.quotient);
+    } else {
+      alert("Invalid mode selected.");
+      return;
     }
   }
+
+
 
   // 초기 라벨 활성화
   const modeLabels = document.querySelectorAll('.mode label');
