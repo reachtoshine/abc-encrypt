@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Base37 Modular Multiplicative Cipher</title>
+<title>Encrypt Letters & Digits (Base37)</title>
 <style>
   body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -60,7 +60,6 @@
     width: 100%;
     display: block;
   }
-  /* 라벨 전체 배경 색상 채우려면 아래 JS로 클래스 조작 */
   .mode label.active {
     background-color: #ff6f61;
     color: white;
@@ -109,7 +108,7 @@
 </head>
 <body>
   <div class="container">
-    <h2>Base37 Modular Multiplicative Cipher</h2>
+    <h2>Encrypt Letters & Digits (Base37)</h2>
     <div class="mode">
       <label>
         <input type="radio" name="mode" value="encrypt" checked />
@@ -120,68 +119,110 @@
         <span>Decrypt</span>
       </label>
     </div>
-    <input id="text" type="text" placeholder="Enter plaintext or ciphertext (0-9, A-Z, space)" />
-    <input id="key" type="text" placeholder="Enter key (0-9, A-Z, space)" />
+    <input id="text" type="text" placeholder="Enter plaintext or ciphertext (0-9, A-Z, space)" oninput="this.value=this.value.toUpperCase()" />
+    <input id="key" type="text" placeholder="Enter key (0-9, A-Z, space)" oninput="this.value=this.value.toUpperCase()" />
     <button onclick="process()">Execute</button>
     <textarea id="output" readonly placeholder="Result will appear here"></textarea>
   </div>
 
-  <script>
-    // Alphabet: 0–9 + A–Z + Space => 37 symbols
-    const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ";
-    const base = alphabet.length; // 37
+<script>
+  // Base37 character set
+  const charSet = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ ';
 
-    function modInverse(a, m) {
-      // Extended Euclidean Algorithm
-      let m0 = m, t, q;
-      let x0 = 0, x1 = 1;
-      if (m === 1) return 0;
-      while (a > 1) {
-        q = Math.floor(a / m);
-        t = m;
-        m = a % m; a = t;
-        t = x0;
-        x0 = x1 - q * x0;
-        x1 = t;
-      }
-      if (x1 < 0) x1 += m0;
-      return x1;
+  function charToVal(ch) {
+    return charSet.indexOf(ch);
+  }
+
+  function valToChar(v) {
+    return charSet[v] ?? '?';
+  }
+
+  // Extended Euclidean Algorithm for BigInt
+  function egcd(a, b) {
+    if (b === 0n) return [a, 1n, 0n];
+    const [g, x1, y1] = egcd(b, a % b);
+    return [g, y1, x1 - (a / b) * y1];
+  }
+
+  function modInverse(a, m) {
+    const [g, x] = egcd(a, m);
+    if (g !== 1n) return null;
+    return (x % m + m) % m;
+  }
+
+  function validateString(s) {
+    for (const ch of s) {
+      if (!charSet.includes(ch)) return false;
+    }
+    return true;
+  }
+
+  const MOD = 37n;
+
+  function process() {
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const key = document.getElementById("key").value.toUpperCase();
+    const text = document.getElementById("text").value.toUpperCase();
+
+    if (!key || !text) {
+      alert("Please enter both key and text.");
+      return;
+    }
+    if (!validateString(key) || !validateString(text)) {
+      alert("Only 0-9, A-Z, and space are allowed.");
+      return;
     }
 
-    function processText() {
-      const text = document.getElementById("text").value.toUpperCase();
-      const keyStr = document.getElementById("key").value.trim();
-      const key = parseInt(keyStr, 10);
+    const keyVals = [...key].map(charToVal);
+    const textVals = [...text].map(charToVal);
+    let result = "";
 
-      if (isNaN(key) || key <= 0 || key >= base) {
-        alert("Key must be a number between 1 and 36.");
-        return;
+    try {
+      for (let i = 0; i < textVals.length; i++) {
+        const t = BigInt(textVals[i]);
+        const k = BigInt(keyVals[i % keyVals.length]);
+
+        if (k === 0n) {
+          alert("Key contains '0' which has no modular inverse. Use another key.");
+          return;
+        }
+
+        let r;
+        if (mode === "encrypt") {
+          r = Number((t * k) % MOD);
+        } else {
+          const inv = modInverse(k, MOD);
+          if (inv === null) {
+            alert("Key character has no modular inverse, cannot decrypt.");
+            return;
+          }
+          r = Number((t * inv) % MOD);
+        }
+        result += valToChar(r);
       }
 
-      const mode = document.querySelector('input[name="mode"]:checked').value;
-      let result = "";
-
-      if (mode === "encrypt") {
-        for (let ch of text) {
-          const idx = alphabet.indexOf(ch);
-          if (idx === -1) { result += ch; continue; }
-          const enc = (idx * key) % base;
-          result += alphabet[enc];
-        }
-      } else {
-        // Decrypt
-        const invKey = modInverse(key, base);
-        for (let ch of text) {
-          const idx = alphabet.indexOf(ch);
-          if (idx === -1) { result += ch; continue; }
-          const dec = (idx * invKey) % base;
-          result += alphabet[dec];
-        }
+      // 복호화 시 앞쪽 0 제거
+      if (mode === "decrypt") {
+        result = result.replace(/^0+/, '');
       }
 
-      document.getElementById("output").textContent = result;
+      document.getElementById("output").value = result;
+    } catch (e) {
+      alert(e.message);
     }
-  </script>
+  }
+
+  // 초기 라벨 활성화
+  const modeLabels = document.querySelectorAll('.mode label');
+  const radios = document.querySelectorAll('input[name="mode"]');
+  function updateActiveLabel() {
+    radios.forEach((r, i) => {
+      if (r.checked) modeLabels[i].classList.add('active');
+      else modeLabels[i].classList.remove('active');
+    });
+  }
+  radios.forEach(radio => radio.addEventListener('change', updateActiveLabel));
+  updateActiveLabel();
+</script>
 </body>
 </html>
-
